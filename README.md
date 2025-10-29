@@ -8,17 +8,19 @@
 
 `sproto-js` 是 [cloudwu/sproto](https://github.com/cloudwu/sproto) 协议的纯 JavaScript 实现。sproto 是一个高效的序列化库，类似于 Google Protocol Buffers，但性能更高，设计更简洁。
 
-本项目完全兼容原版 sproto 的 C 和 Lua 实现，支持跨平台通信，可以在 Node.js 环境中使用。
+本项目完全兼容原版 sproto。本项目使用了pegjs直接生成解析器，可以直接读取sproto文件，而不需要spb，另外为了支持64位大整数，js使用了ES2020 BigInt特性，另外为了支持sproto的map特性， 使用了ES6的Map.
+
 
 ### 特性
 
 - ✅ **完全兼容**: 与原版 sproto C/Lua 实现完全兼容
 - ✅ **高性能**: 优化的序列化/反序列化性能
-- ✅ **类型丰富**: 支持整数、布尔值、字符串、浮点数、结构体、数组、Map 等数据类型
+- ✅ **类型丰富**: 支持整数、布尔值、字符串、浮点数、结构体、数组 等数据类型
 - ✅ **嵌套支持**: 支持复杂嵌套结构
 - ✅ **二进制格式**: 紧凑的二进制编码格式
 - ✅ **RPC 支持**: 内置 RPC 协议支持
 - ✅ **大整数支持**: 完整支持 64 位整数
+- ✅ **Map支持**: 完整支持Map类型(使用map的数据，需要JS的Map类型，而不是Object类型)
 
 ### 安装
 
@@ -339,5 +341,6 @@ This project is fully compatible with the original sproto protocol format and ca
 Issues and Pull Requests are welcome to improve this project.
 
 ### License
+
 
 MIT License
