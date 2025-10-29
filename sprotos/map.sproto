@@ -1,0 +1,15 @@
+.Map {
+    key 0 : integer
+    value 1 : string
+}
+
+.struct {    
+    m_ids 0 : *integer(2)
+    m_map 1 : *Map()
+    m_map2 2 : *Map(key)
+}
+
+getStruct 1 {
+    request nil
+    response struct
+}

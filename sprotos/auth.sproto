@@ -1,0 +1,23 @@
+# 登录鉴权
+.auth {
+	.Person {
+		name 0 : string
+		id 1 : integer
+		email 2 : string
+		real 3: double
+
+		.PhoneNumber {
+			number 99 : string
+			type  1000: integer
+		}
+
+		phone 4 : *PhoneNumber
+		phonemap 5 : *PhoneNumber()
+	}
+
+	.AddressBook {
+		person 0: *Person(id)
+		others 1: *Person
+	}
+
+}

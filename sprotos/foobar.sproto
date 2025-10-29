@@ -1,0 +1,30 @@
+
+.foobar {
+	#定义一个nest结构体
+    .nest {
+		name 1 : string
+		isFriend 3 : boolean
+		count 5 : integer
+		deal 6 : integer(3)   #这里表示定点小数，3表示3位小数, 传1234，收到的值解析为:1234/1000=1.234
+	}
+
+    #定义一个map结构体
+	.map {
+		a_uuid 1 : string
+		b_nest 2 : nest
+	}
+	a_str 0 : string
+	b_num 1 : integer(11)          #这里是integer类型
+	c_bool 2 : boolean            #这里是boolean类型
+	d_nest 3 : *nest(name)        #这里是nest的Map类型, nest.a为key, nest为value
+
+	e_str 4 : *string             #这里是string数组类型
+	f_intArray 5 : *integer       #这里是integer数组类型
+	g_boolArray 6 : *boolean      #这里是boolean数组类型
+	h_nestArray 7 : *nest         #这里是nest数组类型
+	i_intArray 8 : *integer(12)    #这里表示定点小数，2表示2位小数，传123，收到的值解析为:123/100=1.23
+	j_binary 9 : binary           #这里是二进制流类型
+	k_double 10: double           #这里是double类型
+	l_doubleArray 11: *double     #这里是double数组类型
+	m_map 12: *map()              #这里是js的Map类型, map.a为key, map.b为value
+}

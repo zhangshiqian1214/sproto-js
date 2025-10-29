@@ -1,0 +1,17 @@
+# 个人信息
+.Person {
+    name 0 : string
+    age 1 : integer
+    marital 2 : boolean
+    children 3 : *Person
+}
+
+.Data {
+	numbers 0 : *integer
+	bools 1 : *boolean
+	number 2 : integer
+	bignumber 3 : integer
+    double 4 : double
+    doubles 5 : *double
+    fpn 6 : integer(2)
+}

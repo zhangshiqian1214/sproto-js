@@ -1,0 +1,46 @@
+# 全面的sproto测试类型定义
+
+.base {
+	# 基本数据类型测试
+	.BasicTypes {
+		small_int 0 : integer      # 小整数
+		big_int 1 : integer        # 大整数
+		huge_int 2 : integer       # 超大整数
+		small_float 3 : double     # 小浮点数
+		big_float 4 : double       # 大浮点数
+		huge_float 5 : double      # 超大浮点数
+		text 6 : string           # 字符串
+		flag 7 : boolean          # 布尔值
+		data 8 : binary           # 二进制数据
+	}
+
+	# 数组类型测试
+	.ArrayTypes {
+		int_array 0 : *integer     # 整数数组
+		double_array 1 : *double   # 浮点数数组
+		string_array 2 : *string   # 字符串数组
+		bool_array 3 : *boolean    # 布尔值数组
+		binary_array 4 : *binary   # 二进制数组
+	}
+
+	# 嵌套对象测试
+	.NestedObject {
+		.Map {
+			key 0 : string
+			value 1 : integer
+		}
+		id 0 : integer
+		info 1 : BasicTypes
+		tags 2 : *string
+		typeList 3 : *BasicTypes
+		typeMap 4 : *BasicTypes(small_int)
+		innerMap 5 : *Map()
+	}
+
+}
+
+
+
+
+
+

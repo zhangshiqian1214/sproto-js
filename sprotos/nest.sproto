@@ -1,0 +1,8 @@
+.foobar {
+  .nest {
+    id 0 : integer
+    name 1 : string
+  }
+  a 1 : nest
+  b 2 : integer
+}
