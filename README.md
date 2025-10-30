@@ -74,12 +74,18 @@ const data = {
     flag: true
 };
 
-const encoded = sproto.pack('BasicTypes', data);
+const encodedbuff = sproto.encode('BasicTypes', data);
 console.log('Encoded:', encoded);
 
+const packedbuff = sproto.pack(encodedbuff);
+console.log('Packed:', packedbuff);
+
+const unpackedbuff = sproto.unpack(packedbuff);
+console.log('Unpacked:', unpackbuff);
+
 // 反序列化数据
-const decoded = sproto.unpack('BasicTypes', encoded);
-console.log('Decoded:', decoded);
+const decodedData = sproto.decode('BasicTypes', unpackedbuff);
+console.log('Decoded:', decodedData);
 ```
 
 ### 支持的数据类型
@@ -344,3 +350,4 @@ Issues and Pull Requests are welcome to improve this project.
 
 
 MIT License
+
