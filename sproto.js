@@ -62,6 +62,8 @@ class Protocol {
         this.tag = -1;
         this.confirm = 0;
         this.p = [null, null]; // [request, response]
+        this.request = null;
+        this.response = null;
     }
 }
 
@@ -111,15 +113,144 @@ class DecodeUD {
     }
 }
 
+class Host {
+    constructor(sproto, packageName){
+        this.sproto = sproto;
+        this.packageName = packageName;
+        this.sessions = new Map();
+        this.attachSproto = null;
+        this.headerTmp = {};
+        this.extra = {};
+        // this.packageType = this.sproto.typeByName[this.packageName];
+        // if (this.packageType == null){
+        //     throw new Error(`package ${this.packageName} not found`);
+        // }
+    }
+
+    attach(sproto){
+        let self =  this;
+        this.attachSproto = sproto;
+        return (name, data, session) => {
+            session = BigInt(session);
+            let proto = sproto.queryproto(name);
+            if (proto == null){
+                throw new Error(`protocol ${name} not found`);
+            }
+            self.headerTmp.type = proto.tag;
+            self.headerTmp.session = session;
+
+            const headerBuffer = sproto.encode(self.packageName, self.headerTmp);
+            if (session){
+                self.sessions.set(session, proto);
+            }
+            if (proto.request && data){
+                const dataBuffer = sproto.encode(proto.request, data);
+                const mergedBuffer = new Uint8Array(headerBuffer.length + dataBuffer.length);
+                mergedBuffer.set(headerBuffer, 0);
+                mergedBuffer.set(dataBuffer, headerBuffer.length);
+                return sproto.pack(mergedBuffer);
+            } else {
+                return sproto.pack(headerBuffer);
+            }
+        }
+    }
+
+    dispatch(buffer){
+        const sproto = this.sproto;
+        const unpackedBuffer = sproto.unpack(buffer);
+        this.headerTmp.type = null;
+        this.headerTmp.session = null;
+        this.extra.usedSize = 0;
+        this.extra.leftbuffer = null;
+        this.headerTmp = sproto.decode(this.packageName, unpackedBuffer, this.extra);
+        const leftbuffer = this.extra.leftbuffer;
+        if (this.headerTmp.type != null){
+            const proto = sproto.queryproto(this.headerTmp.type);
+            if (proto == null){
+                throw new Error(`protocol ${this.headerTmp.type} not found`);
+            }
+            let request = null;
+            if (proto.request && leftbuffer){
+                request = sproto.decode(proto.request, leftbuffer);
+            }
+            if (this.headerTmp.session){
+                return  {
+                    type:"REQUEST", 
+                    name: proto.name, 
+                    request: request, 
+                    session: this.headerTmp.session,
+                    response: this.genResponseFunc(proto.response, this.headerTmp.session)
+                }
+            } else {
+                return {
+                    type: "REQUEST",
+                    name: proto.name,
+                    request: request,
+                }
+            }
+        } else {
+            const attachSproto = this.attachSproto;
+            if (attachSproto == null){
+                throw new Error(`attach sproto not found`);
+            }
+            if (this.headerTmp.session != null){
+                let proto = this.sessions.get(this.headerTmp.session);
+                if (proto != null){
+                    this.sessions.delete(this.headerTmp.session);
+                    if (proto.response){
+                        return {
+                            type: "RESPONSE",
+                            session: this.headerTmp.session,
+                            name: proto.name,
+                            response: attachSproto.decode(proto.response, leftbuffer),
+                        }
+                    } else {
+                        return {
+                            type: "RESPONSE",
+                            session: this.headerTmp.session,
+                            name: proto.name,
+                            response: null,
+                        }
+                    }
+                } else {
+                    throw new Error(`invalid session ${this.headerTmp.session}`);
+                }
+            } else {
+                throw new Error(`session is null`);
+            }
+        }
+    }
+
+    genResponseFunc(response, session){
+        let self = this;
+        return (data) => {
+            self.headerTmp.type = null;
+            self.headerTmp.session = session;
+            let headerBuffer = self.sproto.encode(self.packageName, self.headerTmp);
+            if (response){
+                let databuffer = self.sproto.encode(response, data);
+                let mergedBuffer = new Uint8Array(headerBuffer.length + databuffer.length);
+                mergedBuffer.set(headerBuffer, 0);
+                mergedBuffer.set(databuffer, headerBuffer.length);
+                return self.sproto.pack(mergedBuffer);
+            } else {
+                return self.sproto.pack(headerBuffer);
+            }
+        }
+    }
+
+}
+
 class Sproto {
     constructor(schema) {
         this.type_n = 0;
         this.protocol_n = 0;
         this.types = [];
-        this.protocols = [];
         this.typeByName = new Map();
+        this.protocols = [];
         this.protoByName = new Map();
         this.protoByTag = new Map();
+        this.packageName = null;
         
         if (schema) {
             // 如果 schema 是字符串，需要先解析
@@ -203,7 +334,7 @@ class Sproto {
             for (let fieldInfo of typeInfo.fields){
                 const fieldObj = this._importField(schema, fieldInfo, typeObj);
                 typeObj.f.push(fieldObj);
-                typeObj.fieldByTag.set(fieldObj.tag, fieldObj);
+                typeObj.fieldByTag.set(Number(fieldObj.tag), fieldObj);
                 typeObj.fieldByName.set(fieldObj.name, fieldObj);
             }
         }
@@ -216,12 +347,13 @@ class Sproto {
 
     _importProtocol(schema, protocolInfo){
         let protocolObj = new Protocol();
-        protocolObj.name = protoName;
+        protocolObj.name = protocolInfo.name;
         protocolObj.tag = protocolInfo.tag || -1;
         if (protocolInfo.request){
             const requestTypeObj = this._getTypeByName(protocolInfo.request.name);
             if (requestTypeObj){
                 protocolObj.p[0] = requestTypeObj;
+                protocolObj.request = requestTypeObj.name;
             }
         }
 
@@ -229,6 +361,7 @@ class Sproto {
             const responseTypeObj = this._getTypeByName(protocolInfo.response.name);
             if (responseTypeObj){
                 protocolObj.p[1] = responseTypeObj;
+                protocolObj.response = responseTypeObj.name;
             }
         }
 
@@ -262,13 +395,14 @@ class Sproto {
         }
         
         
-        if (schema.protocol) {
-            this.protocol_n = schema.protocol.length;
+        if (schema.protocols) {
+            this.protocol_n = schema.protocols.length;
             for (let protocolInfo of schema.protocols){
                 const protocolObj = this._importProtocol(schema, protocolInfo);
 
                 this.protocols.push(protocolObj);
                 this.protoByName.set(protocolObj.name, protocolObj);
+                this.protoByTag.set(Number(protocolObj.tag), protocolObj);
             }
         }
     }
@@ -276,6 +410,7 @@ class Sproto {
     
 
     _findTag(st, tag){
+        tag = Number(tag);
         if (st.base >= 0){
             tag -= st.base;
             if (tag < 0 || tag >= st.n){
@@ -1465,9 +1600,15 @@ class Sproto {
         return this.typeByName.get(name) || null;
     }
 
-    getProtocol(tagOrName){
-        if (typeof tagOrName === 'number') {
-            return this.protoByTag.get(tagOrName) || null;
+    // 根据tag或名称获取协议
+    // 参数：
+    //  tagOrName: 协议tag或名称
+    // 返回值：
+    //  协议对象
+    // 
+    queryproto(tagOrName){
+        if (typeof tagOrName === 'number' || typeof tagOrName === 'bigint') {
+            return this.protoByTag.get(Number(tagOrName)) || null;
         } else if (typeof tagOrName === 'string'){
             return this.protoByName.get(tagOrName) || null;
         } else {
@@ -1527,7 +1668,7 @@ class Sproto {
     // 返回值：
     //  解码后的数据(Object)
     // 
-    decode(typeName, buffer) {
+    decode(typeName, buffer, extra = null) {
         const st = this.typeByName.get(typeName);
         if (!st) {
             throw new Error(`Type ${typeName} not found in schema`);
@@ -1544,6 +1685,12 @@ class Sproto {
         let r = this._sprotoDecode(st, buffer, buffer.length, this._decode.bind(this), self);
         if (r < 0) {
             throw new Error(`Decode ${typeName} failed: ${r}`);
+        }
+        if (extra){
+            if (buffer.length > r){
+                extra.usedSize = r;
+                extra.leftbuffer = buffer.subarray(r);
+            } 
         }
         return self.data;
     }
@@ -1590,6 +1737,73 @@ class Sproto {
             }
         }
         return output.subarray(0, r);
+    }
+
+
+    host(packageName){
+        packageName = packageName ?? 'package';
+        const st = this.typeByName.get(packageName);
+        if (!st) {
+            throw new Error(`Type ${packageName} not found in schema`);
+        }
+        let hostObj = new Host(this, packageName);
+        return hostObj;
+    }
+
+    request_encode(protoname, data){
+        const proto = this.queryproto(protoname);
+        if (proto == null){
+            throw new Error(`protoname ${protoname} not found`);
+        }
+        if (proto.request && data){
+            const buffer = this.encode(proto.request, data);
+            return buffer
+        } else {
+            return new Uint8Array()
+        }
+    }
+
+    request_decode(protoname, buffer){
+        const proto = this.queryproto(protoname);
+        if (proto == null){
+            throw new Error(`protoname ${protoname} not found`);
+        }
+        if (!this._isUint8Array(buffer)){
+            throw new Error(`Invalid buffer type: ${this._getObjectType(buffer)}`);
+        }
+        if (proto.request && buffer.length > 0){
+            return this.decode(proto.request, buffer);
+        } else {
+            return null;
+        }
+    }
+
+    response_encode(protoname, data){
+        const proto = this.queryproto(protoname);
+        if (proto == null){
+            throw new Error(`protoname ${protoname} not found`);
+        }
+        if (proto.response && data){
+            const buffer = this.encode(proto.response, data);
+            return buffer;
+        } else {
+            return new Uint8Array();
+        }
+    }
+
+    response_decode(protoname, buffer){
+        const proto = this.queryproto(protoname);
+        if (proto == null){
+            throw new Error(`protoname ${protoname} not found`);
+        }
+        if (!this._isUint8Array(buffer)){
+            throw new Error(`Invalid buffer type: ${this._getObjectType(buffer)}`);
+        }
+        if (proto.response && buffer.length > 0){
+            return this.decode(proto.response, buffer);
+        } else {
+            return null;
+        }
     }
 
 }
