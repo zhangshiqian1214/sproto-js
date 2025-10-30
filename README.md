@@ -251,12 +251,18 @@ const data = {
     flag: true
 };
 
-const encoded = sproto.pack('BasicTypes', data);
+const encodedbuff = sproto.encode('BasicTypes', data);
 console.log('Encoded:', encoded);
 
+const packedbuff = sproto.pack(encodedbuff);
+console.log('Packed:', packedbuff);
+
+const unpackedbuff = sproto.unpack(packedbuff);
+console.log('Unpacked:', unpackbuff);
+
 // Deserialize data
-const decoded = sproto.unpack('BasicTypes', encoded);
-console.log('Decoded:', decoded);
+const decodedData = sproto.decode('BasicTypes', unpackedbuff);
+console.log('Decoded:', decodedData);
 ```
 
 ### Supported Data Types
@@ -350,4 +356,5 @@ Issues and Pull Requests are welcome to improve this project.
 
 
 MIT License
+
 
